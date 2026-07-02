@@ -2,146 +2,108 @@
 <html lang="ja">
 <head>
     <meta charset="UTF-8">
-    <title>Dashboard Pro - Complete</title>
-    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>資産管理 - Simple Asset</title>
     <style>
-        :root { --primary: #6366f1; --danger: #ef4444; }
-        body { font-family: 'Segoe UI', sans-serif; background: #f8fafc; padding: 40px; }
-        .dashboard { display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: 24px; }
-        .chart-card { background: white; padding: 20px; border-radius: 16px; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1); height: 320px; border: 1px solid #e2e8f0; display: flex; flex-direction: column; cursor: pointer; position: relative; }
-        .drag-handle { position: absolute; top: 15px; right: 15px; width: 24px; height: 24px; background: #cbd5e1; border-radius: 4px; cursor: grab; display: flex; align-items: center; justify-content: center; font-size: 14px; color: white; z-index: 10; }
-        .canvas-wrapper { flex: 1; position: relative; min-height: 0; margin-top: 10px; }
-        .add-card { background: white; border: 2px dashed #cbd5e1; border-radius: 16px; height: 320px; display: flex; justify-content: center; align-items: center; cursor: pointer; color: #64748b; font-weight: bold; }
-        .modal { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.4); z-index: 1000; justify-content: center; align-items: center; }
-        .modal-content { background: white; padding: 25px; border-radius: 20px; width: 450px; height: 80vh; display: flex; flex-direction: column; }
-        #inputArea { flex-grow: 1; overflow-y: auto; margin: 15px 0; padding-right: 10px; }
-        .row { display: flex; gap: 8px; align-items: center; margin-bottom: 8px; }
-        input { padding: 10px; border: 1px solid #cbd5e1; border-radius: 8px; flex-grow: 1; }
-        button { background: var(--primary); color: white; border: none; padding: 10px 16px; border-radius: 8px; cursor: pointer; font-weight: 600; }
-        .btn-danger { background: var(--danger); }
-        .btn-ghost { background: #e2e8f0; color: #475569; }
+        :root {
+            --bg-color: #F8F9FB;
+            --card-bg: #FFFFFF;
+            --text-main: #2D3436;
+            --color-income: #00B894; /* 爽やかなグリーン */
+            --color-expense: #B2BEC3; /* 控えめなグレー */
+            --shadow: 0 8px 24px rgba(149, 157, 165, 0.15);
+        }
+
+        body { font-family: -apple-system, sans-serif; background: var(--bg-color); margin: 0; padding: 20px; color: var(--text-main); }
+        .container { max-width: 500px; margin: 0 auto; }
+        
+        .card { background: var(--card-bg); border-radius: 24px; padding: 24px; margin-bottom: 20px; box-shadow: var(--shadow); }
+        
+        /* ドーナツグラフ */
+        .chart-wrapper { display: flex; justify-content: center; position: relative; height: 200px; align-items: center; }
+        .donut { width: 180px; height: 180px; border-radius: 50%; background: conic-gradient(var(--color-income) 0%, var(--color-expense) 0%); transition: 0.5s; }
+        .hole { position: absolute; width: 130px; height: 130px; background: white; border-radius: 50%; display: flex; flex-direction: column; align-items: center; justify-content: center; cursor: pointer; }
+        
+        input, select, button { width: 100%; padding: 15px; margin: 8px 0; border-radius: 12px; border: none; background: #F0F2F5; font-size: 16px; box-sizing: border-box; }
+        button { background: var(--color-income); color: white; font-weight: bold; }
+        
+        .list-item { display: flex; justify-content: space-between; padding: 12px 0; border-bottom: 1px solid #EEE; }
+        .empty { text-align: center; color: #999; padding: 20px; }
     </style>
 </head>
 <body>
 
-<h2>Analytics Dashboard</h2>
-<div class="dashboard" id="dashboard">
-    <div class="add-card" id="addBtn" onclick="addChart()">＋ グラフを追加</div>
-</div>
-
-<div id="modal" class="modal">
-    <div class="modal-content">
-        <div style="display:flex; justify-content:space-between; align-items:center;">
-            <h3>グラフの編集</h3>
-            <div>
-                <button class="btn-ghost" onclick="exportData()">出力</button>
-                <button class="btn-ghost" onclick="document.getElementById('filePicker').click()">取り込み</button>
-            </div>
-        </div>
-        <div class="row">
-            <input type="text" id="newTitle" placeholder="グラフ名">
-            <input type="number" id="newMax" placeholder="上限値">
-            <input type="color" id="newColor" style="width: 60px; height: 40px;">
-        </div>
-        <button style="width: 100%;" onclick="addRow()">＋ 行追加</button>
-        <div id="inputArea"></div>
-        <div style="display:flex; justify-content:space-between; border-top:1px solid #eee; padding-top: 15px;">
-            <button class="btn-danger" onclick="deleteChart()">グラフを削除</button>
-            <div style="display:flex; gap:10px;">
-                <button class="btn-ghost" onclick="closeModal()">キャンセル</button>
-                <button onclick="saveData()">保存</button>
+<div class="container">
+    <div class="card">
+        <div class="chart-wrapper">
+            <div id="donut" class="donut"></div>
+            <div class="hole" onclick="toggleMask()">
+                <small>総資産</small>
+                <div id="totalValue" style="font-weight: bold; font-size: 1.2rem;">¥0</div>
             </div>
         </div>
     </div>
+
+    <div class="card">
+        <input type="text" id="name" placeholder="項目名">
+        <input type="number" id="amount" placeholder="金額">
+        <select id="type"><option value="income">収入</option><option value="expense">支出</option></select>
+        <button onclick="saveData()">登録</button>
+    </div>
+
+    <div class="card">
+        <div id="list"></div>
+    </div>
 </div>
-<input type="file" id="filePicker" style="display:none" onchange="importData(event)">
 
 <script>
-    let charts = {}, chartCounter = 0;
-    const dashboard = document.getElementById('dashboard');
+    let items = JSON.parse(localStorage.getItem('myAssets')) || [];
+    let masked = false;
 
-    function saveState() {
-        const cards = Array.from(dashboard.querySelectorAll('.chart-card'));
-        const data = cards.map(c => {
-            const id = c.id.replace('card', '');
-            return { id, title: document.getElementById(`title${id}`).innerText, data: charts[id].data.datasets[0].data, color: charts[id].data.datasets[0].borderColor, max: charts[id].options.scales.y.max };
+    function saveData() {
+        const name = document.getElementById('name').value;
+        const amount = parseInt(document.getElementById('amount').value);
+        const type = document.getElementById('type').value;
+        
+        if(name && amount) {
+            items.push({ name, amount, type });
+            localStorage.setItem('myAssets', JSON.stringify(items));
+            update();
+        }
+    }
+
+    function toggleMask() { masked = !masked; update(); }
+
+    function update() {
+        const listEl = document.getElementById('list');
+        const donut = document.getElementById('donut');
+        let total = 0, income = 0, expense = 0;
+
+        listEl.innerHTML = '';
+        items.forEach((item, i) => {
+            if(item.type === 'income') { total += item.amount; income += item.amount; }
+            else { total -= item.amount; expense += item.amount; }
+            
+            listEl.innerHTML += `
+                <div class="list-item">
+                    <span>${item.name} (${item.type === 'income' ? '収入' : '支出'})</span>
+                    <span>¥${item.amount.toLocaleString()} <button style="width:auto; padding:2px 8px; background:none; color:gray;" onclick="del(${i})">✕</button></span>
+                </div>
+            `;
         });
-        localStorage.setItem('dashData', JSON.stringify(data));
+
+        document.getElementById('totalValue').innerText = masked ? '***' : '¥' + total.toLocaleString();
+        
+        const totalSum = income + expense;
+        const incRatio = totalSum === 0 ? 0 : (income / totalSum) * 100;
+        donut.style.background = `conic-gradient(var(--color-income) ${incRatio}%, var(--color-expense) 0)`;
+        
+        if(items.length === 0) listEl.innerHTML = '<div class="empty">データがありません</div>';
     }
 
-    function createChartCard(s = null) {
-        chartCounter++;
-        const id = s ? s.id : chartCounter;
-        const div = document.createElement('div');
-        div.className = 'chart-card'; div.id = `card${id}`;
-        div.onclick = (e) => { if(e.target.className !== 'drag-handle') openModal(id); };
-        div.innerHTML = `
-            <div class="drag-handle" draggable="true" ondragstart="handleDragStart(event, ${id})">⠿</div>
-            <h4 id="title${id}" style="margin:5px 0;">${s ? s.title : 'グラフ '+id}</h4>
-            <div class="canvas-wrapper"><canvas id="chart${id}"></canvas></div>
-        `;
-        div.ondragover = e => e.preventDefault();
-        div.ondrop = e => { e.preventDefault(); const draggedId = e.dataTransfer.getData('text/plain'); dashboard.insertBefore(document.getElementById(`card${draggedId}`), div); saveState(); };
-        dashboard.insertBefore(div, document.getElementById('addBtn'));
-
-        const ctx = document.getElementById(`chart${id}`).getContext('2d');
-        charts[id] = new Chart(ctx, {
-            type: 'line',
-            data: { 
-                labels: (s && s.data ? s.data.map((_,i)=>i+1) : [1]), 
-                datasets: [{ 
-                    data: s ? s.data : [0], 
-                    borderColor: s ? s.color : '#6366f1',
-                    tension: 0.3 
-                }] 
-            },
-            options: { 
-                responsive:true, 
-                maintainAspectRatio:false, 
-                scales:{y:{min:0, max: s ? s.max : 1000}}, 
-                plugins: { legend: { display: false } } 
-            }
-        });
-    }
-
-    function handleDragStart(e, id) { e.dataTransfer.setData('text/plain', id); e.stopPropagation(); }
-    function addChart(s = null) { createChartCard(s); saveState(); }
+    function del(i) { items.splice(i, 1); localStorage.setItem('myAssets', JSON.stringify(items)); update(); }
     
-    function openModal(id) { 
-        window.activeId = id; 
-        document.getElementById('modal').style.display = 'flex'; 
-        document.getElementById('newTitle').value = document.getElementById(`title${id}`).innerText; 
-        document.getElementById('newMax').value = charts[id].options.scales.y.max;
-        document.getElementById('newColor').value = charts[id].data.datasets[0].borderColor;
-        document.getElementById('inputArea').innerHTML = ''; 
-        charts[id].data.datasets[0].data.forEach(val => addRow(val)); 
-    }
-    
-    function closeModal() { document.getElementById('modal').style.display = 'none'; }
-    function addRow(val = '') { const div = document.createElement('div'); div.className = 'row'; div.innerHTML = `<input type="number" class="val-input" value="${val}"><button class="btn-danger" onclick="this.parentElement.remove()">×</button>`; document.getElementById('inputArea').appendChild(div); }
-    
-    function saveData() { 
-        document.getElementById(`title${window.activeId}`).innerText = document.getElementById('newTitle').value; 
-        const inputs = document.querySelectorAll('.val-input'); 
-        let newData = Array.from(inputs).map(i => parseFloat(i.value) || 0); 
-        charts[window.activeId].data.datasets[0].data = newData; 
-        charts[window.activeId].data.labels = newData.map((_, i) => i + 1); 
-        charts[window.activeId].data.datasets[0].borderColor = document.getElementById('newColor').value; 
-        charts[window.activeId].options.scales.y.max = parseFloat(document.getElementById('newMax').value) || 1000;
-        charts[window.activeId].update(); 
-        saveState(); 
-        closeModal(); 
-    }
-    
-    function deleteChart() { if(confirm('削除しますか？')) { document.getElementById(`card${window.activeId}`).remove(); delete charts[window.activeId]; saveState(); closeModal(); } }
-    function exportData() { const data = { title: document.getElementById('newTitle').value, data: charts[window.activeId].data.datasets[0].data, color: document.getElementById('newColor').value, max: charts[window.activeId].options.scales.y.max }; const a = document.createElement('a'); a.href = 'data:application/json,' + encodeURIComponent(JSON.stringify(data)); a.download = `${data.title}.json`; a.click(); }
-    function importData(e) { const reader = new FileReader(); reader.onload = ev => { const item = JSON.parse(ev.target.result); document.getElementById('newTitle').value = item.title; document.getElementById('newMax').value = item.max; document.getElementById('newColor').value = item.color; document.getElementById('inputArea').innerHTML = ''; item.data.forEach(val => addRow(val)); }; reader.readAsText(e.target.files[0]); }
-
-    window.onload = () => {
-        const saved = JSON.parse(localStorage.getItem('dashData'));
-        if (saved) saved.forEach(s => createChartCard(s));
-        else for(let i=0; i<10; i++) addChart();
-    };
+    update();
 </script>
 </body>
 </html>

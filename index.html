@@ -9,21 +9,26 @@
         body { font-family: -apple-system, BlinkMacSystemFont, sans-serif; background: var(--bg); margin: 0; padding: 0; }
         .page-wrapper { max-width: 450px; margin: 0 auto; padding: 20px; box-sizing: border-box; }
 
-        /* メニュー（左からスライド） */
         #menu { position: fixed; top: 0; left: -250px; width: 220px; height: 100%; background: white; padding: 20px; box-shadow: 2px 0 10px rgba(0,0,0,0.1); z-index: 50; transition: 0.3s; }
         #menu.open { left: 0; }
         #overlay { display: none; position: fixed; top:0; left:0; width:100%; height:100%; background: rgba(0,0,0,0.2); z-index: 40; }
 
         .card { background: var(--card); border-radius: 24px; padding: 20px; margin-bottom: 20px; box-shadow: 0 4px 12px rgba(0,0,0,0.05); }
-        
-        /* ドーナツグラフ */
-        .chart-container { position: relative; width: 140px; height: 140px; margin: 0 auto; }
+        .chart-container { position: relative; width: 200px; height: 200px; margin: 0 auto; }
         #donut { width: 100%; height: 100%; border-radius: 50%; }
-        #donut-hole { position: absolute; top: 20px; left: 20px; width: 100px; height: 100px; background: var(--card); border-radius: 50%; display: flex; align-items: center; justify-content: center; font-weight: bold; }
+        #donut-hole { 
+            position: absolute; top: 30px; left: 30px; width: 140px; height: 140px; 
+            background: var(--card); border-radius: 50%; 
+            display: flex; align-items: center; justify-content: center; 
+            font-weight: bold; font-size: 1.1rem; cursor: pointer;
+        }
         
         .modal { display: none; position: fixed; top:0; left:0; width:100%; height:100%; background: rgba(0,0,0,0.3); z-index: 100; align-items: center; justify-content: center; }
         .modal-content { background: white; width: 85%; max-width: 400px; padding: 25px; border-radius: 24px; position: relative; }
         
+        .color-wrapper { position: relative; width: 40px; height: 40px; border-radius: 12px; border: 2px solid #EEE; overflow: hidden; }
+        #colorPicker { position: absolute; top: -10px; left: -10px; width: 60px; height: 60px; cursor: pointer; }
+
         .btn-modern { background: var(--accent); color: white; border: none; padding: 12px 20px; border-radius: 14px; font-weight: 600; cursor: pointer; flex: 1; }
         .btn-del { background: #FF7675; color: white; border: none; padding: 12px 20px; border-radius: 14px; font-weight: 600; cursor: pointer; flex: 1; }
         .icon-btn { background: #EEE; border: none; border-radius: 8px; padding: 5px 10px; cursor: pointer; margin-left: 5px; }
@@ -53,7 +58,7 @@
     <div class="card">
         <div class="chart-container">
             <div id="donut"></div>
-            <div id="donut-hole"><span id="totalValue">¥0</span></div>
+            <div id="donut-hole" onclick="toggleTotalDisplay()"><span id="totalValue">¥0</span></div>
         </div>
     </div>
 
@@ -73,9 +78,10 @@
         <input type="text" id="name" placeholder="項目名">
         <input type="number" id="amount" placeholder="金額">
         <div style="display:flex; align-items:center; gap:15px; margin:15px 0;">
-            <div id="colorPreview" style="width:40px; height:40px; border-radius:12px; border:2px solid #EEE; cursor:pointer;" onclick="document.getElementById('colorPicker').click()"></div>
-            <input type="color" id="colorPicker" style="display:none;" onchange="document.getElementById('colorPreview').style.backgroundColor=this.value">
-            <span>項目色</span>
+            <div class="color-wrapper" id="colorPreview" onclick="document.getElementById('colorPicker').click()">
+                <input type="color" id="colorPicker" onchange="document.getElementById('colorPreview').style.backgroundColor=this.value">
+            </div>
+            <span>項目色を変更</span>
         </div>
         <div style="display:flex; gap:10px; margin-top:20px;">
             <button id="delBtn" class="btn-del" onclick="deleteItem()">削除</button>
@@ -87,6 +93,7 @@
 <script>
     let projects = JSON.parse(localStorage.getItem('myProjects')) || [{title: "メイン", items: []}];
     let currentIdx = 0, editIdx = -1;
+    let isHidden = false;
 
     function render() {
         localStorage.setItem('myProjects', JSON.stringify(projects));
@@ -103,8 +110,7 @@
             </div>
         `).join('');
         
-        const total = proj.items.reduce((s, it) => s + it.amount, 0);
-        document.getElementById('totalValue').innerText = '¥' + total.toLocaleString();
+        updateTotalDisplay();
         
         const sumAll = proj.items.reduce((s, it) => s + it.amount, 0);
         let deg = 0, stops = [];
@@ -114,6 +120,17 @@
             deg += p;
         });
         document.getElementById('donut').style.background = stops.length ? `conic-gradient(${stops.join(',')})` : '#eee';
+    }
+
+    function toggleTotalDisplay() {
+        isHidden = !isHidden;
+        updateTotalDisplay();
+    }
+
+    function updateTotalDisplay() {
+        const total = projects[currentIdx].items.reduce((s, it) => s + it.amount, 0);
+        const masked = total.toLocaleString().replace(/[0-9]/g, '*');
+        document.getElementById('totalValue').innerText = isHidden ? '¥' + masked : '¥' + total.toLocaleString();
     }
 
     function exportData() {
@@ -134,13 +151,23 @@
                 render();
             } catch(e) { alert("無効なファイルです"); }
         };
-        reader.readAsText(file);
+        reader.readText(file, "UTF-8");
         e.target.value = '';
     }
 
     function editProjectTitle() { const newTitle = prompt("タイトルを入力", projects[currentIdx].title); if(newTitle) { projects[currentIdx].title = newTitle; render(); } }
     function toggleMenu() { document.getElementById('menu').classList.toggle('open'); document.getElementById('overlay').style.display = document.getElementById('menu').classList.contains('open') ? 'block' : 'none'; }
-    function openModal(i = -1) { editIdx = i; const p = projects[currentIdx]; document.getElementById('name').value = i === -1 ? '' : p.items[i].name; document.getElementById('amount').value = i === -1 ? '' : p.items[i].amount; document.getElementById('colorPicker').value = i === -1 ? '#00B894' : p.items[i].color; document.getElementById('colorPreview').style.backgroundColor = i === -1 ? '#00B894' : p.items[i].color; document.getElementById('delBtn').style.display = i === -1 ? 'none' : 'block'; document.getElementById('modal').style.display = 'flex'; }
+    function openModal(i = -1) { 
+        editIdx = i; 
+        const p = projects[currentIdx]; 
+        document.getElementById('name').value = i === -1 ? '' : p.items[i].name; 
+        document.getElementById('amount').value = i === -1 ? '' : p.items[i].amount; 
+        const color = i === -1 ? '#00B894' : p.items[i].color;
+        document.getElementById('colorPicker').value = color;
+        document.getElementById('colorPreview').style.backgroundColor = color;
+        document.getElementById('delBtn').style.display = i === -1 ? 'none' : 'block'; 
+        document.getElementById('modal').style.display = 'flex'; 
+    }
     function saveItem() { const p = projects[currentIdx]; const it = { name: document.getElementById('name').value, amount: parseInt(document.getElementById('amount').value) || 0, color: document.getElementById('colorPicker').value }; if(editIdx === -1) p.items.push(it); else p.items[editIdx] = it; closeModal(); render(); }
     function deleteItem() { projects[currentIdx].items.splice(editIdx, 1); closeModal(); render(); }
     function closeModal() { document.getElementById('modal').style.display = 'none'; }

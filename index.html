@@ -2,108 +2,151 @@
 <html lang="ja">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-    <title>資産管理 - Simple Asset</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>資産管理アプリ</title>
     <style>
-        :root {
-            --bg-color: #F8F9FB;
-            --card-bg: #FFFFFF;
-            --text-main: #2D3436;
-            --color-income: #00B894; /* 爽やかなグリーン */
-            --color-expense: #B2BEC3; /* 控えめなグレー */
-            --shadow: 0 8px 24px rgba(149, 157, 165, 0.15);
-        }
+        :root { --bg: #F4F7F6; --card: #FFFFFF; --accent: #00B894; }
+        body { font-family: -apple-system, BlinkMacSystemFont, sans-serif; background: var(--bg); margin: 0; padding: 0; }
+        .page-wrapper { max-width: 450px; margin: 0 auto; padding: 20px; box-sizing: border-box; }
 
-        body { font-family: -apple-system, sans-serif; background: var(--bg-color); margin: 0; padding: 20px; color: var(--text-main); }
-        .container { max-width: 500px; margin: 0 auto; }
-        
-        .card { background: var(--card-bg); border-radius: 24px; padding: 24px; margin-bottom: 20px; box-shadow: var(--shadow); }
+        /* メニュー（左からスライド） */
+        #menu { position: fixed; top: 0; left: -250px; width: 220px; height: 100%; background: white; padding: 20px; box-shadow: 2px 0 10px rgba(0,0,0,0.1); z-index: 50; transition: 0.3s; }
+        #menu.open { left: 0; }
+        #overlay { display: none; position: fixed; top:0; left:0; width:100%; height:100%; background: rgba(0,0,0,0.2); z-index: 40; }
+
+        .card { background: var(--card); border-radius: 24px; padding: 20px; margin-bottom: 20px; box-shadow: 0 4px 12px rgba(0,0,0,0.05); }
         
         /* ドーナツグラフ */
-        .chart-wrapper { display: flex; justify-content: center; position: relative; height: 200px; align-items: center; }
-        .donut { width: 180px; height: 180px; border-radius: 50%; background: conic-gradient(var(--color-income) 0%, var(--color-expense) 0%); transition: 0.5s; }
-        .hole { position: absolute; width: 130px; height: 130px; background: white; border-radius: 50%; display: flex; flex-direction: column; align-items: center; justify-content: center; cursor: pointer; }
+        .chart-container { position: relative; width: 140px; height: 140px; margin: 0 auto; }
+        #donut { width: 100%; height: 100%; border-radius: 50%; }
+        #donut-hole { position: absolute; top: 20px; left: 20px; width: 100px; height: 100px; background: var(--card); border-radius: 50%; display: flex; align-items: center; justify-content: center; font-weight: bold; }
         
-        input, select, button { width: 100%; padding: 15px; margin: 8px 0; border-radius: 12px; border: none; background: #F0F2F5; font-size: 16px; box-sizing: border-box; }
-        button { background: var(--color-income); color: white; font-weight: bold; }
+        .modal { display: none; position: fixed; top:0; left:0; width:100%; height:100%; background: rgba(0,0,0,0.3); z-index: 100; align-items: center; justify-content: center; }
+        .modal-content { background: white; width: 85%; max-width: 400px; padding: 25px; border-radius: 24px; position: relative; }
         
-        .list-item { display: flex; justify-content: space-between; padding: 12px 0; border-bottom: 1px solid #EEE; }
-        .empty { text-align: center; color: #999; padding: 20px; }
+        .btn-modern { background: var(--accent); color: white; border: none; padding: 12px 20px; border-radius: 14px; font-weight: 600; cursor: pointer; flex: 1; }
+        .btn-del { background: #FF7675; color: white; border: none; padding: 12px 20px; border-radius: 14px; font-weight: 600; cursor: pointer; flex: 1; }
+        .icon-btn { background: #EEE; border: none; border-radius: 8px; padding: 5px 10px; cursor: pointer; margin-left: 5px; }
+        input { width: 100%; padding: 12px; margin: 8px 0; border-radius: 10px; border: 1px solid #DDD; box-sizing: border-box; }
     </style>
 </head>
 <body>
 
-<div class="container">
+<div id="overlay" onclick="toggleMenu()"></div>
+<div id="menu">
+    <h3>グラフ一覧</h3>
+    <div id="projectList"></div>
+    <button class="btn-modern" style="width:100%; margin-top:20px;" onclick="addProject()">＋ 新規グラフ</button>
+</div>
+
+<div class="page-wrapper">
+    <div style="font-size: 28px; cursor: pointer; margin-bottom: 10px;" onclick="toggleMenu()">☰</div>
+
+    <div style="display:flex; align-items:center; margin-bottom:15px;">
+        <h2 id="projectName" style="margin:0; flex-grow:1;">メイン</h2>
+        <button class="icon-btn" onclick="editProjectTitle()">編集</button>
+        <button class="icon-btn" onclick="exportData()">💾</button>
+        <button class="icon-btn" onclick="document.getElementById('importFile').click()">📂</button>
+        <input type="file" id="importFile" style="display:none" onchange="importData(event)">
+    </div>
+
     <div class="card">
-        <div class="chart-wrapper">
-            <div id="donut" class="donut"></div>
-            <div class="hole" onclick="toggleMask()">
-                <small>総資産</small>
-                <div id="totalValue" style="font-weight: bold; font-size: 1.2rem;">¥0</div>
-            </div>
+        <div class="chart-container">
+            <div id="donut"></div>
+            <div id="donut-hole"><span id="totalValue">¥0</span></div>
         </div>
     </div>
 
     <div class="card">
+        <div style="display: flex; justify-content: space-between; align-items: center;">
+            <h3 style="margin:0;">履歴</h3>
+            <button style="background:var(--accent); color:white; border-radius:50%; width:40px; height:40px; border:none; font-size:24px;" onclick="openModal()">＋</button>
+        </div>
+        <div id="historyList" style="margin-top: 10px;"></div>
+    </div>
+</div>
+
+<div id="modal" class="modal">
+    <div class="modal-content">
+        <div style="position:absolute; top:15px; right:15px; cursor:pointer;" onclick="closeModal()">×</div>
+        <h3>項目管理</h3>
         <input type="text" id="name" placeholder="項目名">
         <input type="number" id="amount" placeholder="金額">
-        <select id="type"><option value="income">収入</option><option value="expense">支出</option></select>
-        <button onclick="saveData()">登録</button>
-    </div>
-
-    <div class="card">
-        <div id="list"></div>
+        <div style="display:flex; align-items:center; gap:15px; margin:15px 0;">
+            <div id="colorPreview" style="width:40px; height:40px; border-radius:12px; border:2px solid #EEE; cursor:pointer;" onclick="document.getElementById('colorPicker').click()"></div>
+            <input type="color" id="colorPicker" style="display:none;" onchange="document.getElementById('colorPreview').style.backgroundColor=this.value">
+            <span>項目色</span>
+        </div>
+        <div style="display:flex; gap:10px; margin-top:20px;">
+            <button id="delBtn" class="btn-del" onclick="deleteItem()">削除</button>
+            <button class="btn-modern" onclick="saveItem()">保存</button>
+        </div>
     </div>
 </div>
 
 <script>
-    let items = JSON.parse(localStorage.getItem('myAssets')) || [];
-    let masked = false;
+    let projects = JSON.parse(localStorage.getItem('myProjects')) || [{title: "メイン", items: []}];
+    let currentIdx = 0, editIdx = -1;
 
-    function saveData() {
-        const name = document.getElementById('name').value;
-        const amount = parseInt(document.getElementById('amount').value);
-        const type = document.getElementById('type').value;
+    function render() {
+        localStorage.setItem('myProjects', JSON.stringify(projects));
+        const proj = projects[currentIdx];
+        document.getElementById('projectName').innerText = proj.title;
+        document.getElementById('projectList').innerHTML = projects.map((p, i) => `<div style="padding:15px; cursor:pointer; border-bottom:1px solid #eee;" onclick="switchProject(${i})">${p.title}</div>`).join('');
         
-        if(name && amount) {
-            items.push({ name, amount, type });
-            localStorage.setItem('myAssets', JSON.stringify(items));
-            update();
-        }
-    }
-
-    function toggleMask() { masked = !masked; update(); }
-
-    function update() {
-        const listEl = document.getElementById('list');
-        const donut = document.getElementById('donut');
-        let total = 0, income = 0, expense = 0;
-
-        listEl.innerHTML = '';
-        items.forEach((item, i) => {
-            if(item.type === 'income') { total += item.amount; income += item.amount; }
-            else { total -= item.amount; expense += item.amount; }
-            
-            listEl.innerHTML += `
-                <div class="list-item">
-                    <span>${item.name} (${item.type === 'income' ? '収入' : '支出'})</span>
-                    <span>¥${item.amount.toLocaleString()} <button style="width:auto; padding:2px 8px; background:none; color:gray;" onclick="del(${i})">✕</button></span>
-                </div>
-            `;
+        const listEl = document.getElementById('historyList');
+        listEl.innerHTML = proj.items.map((it, i) => `
+            <div onclick="openModal(${i})" style="display:flex; align-items:center; padding:12px 0; border-bottom:1px solid #eee; cursor:pointer;">
+                <div style="width:18px; height:18px; background:${it.color}; margin-right:12px; border-radius:4px;"></div>
+                <div style="flex-grow:1;">${it.name}</div>
+                <div>¥${it.amount.toLocaleString()}</div>
+            </div>
+        `).join('');
+        
+        const total = proj.items.reduce((s, it) => s + it.amount, 0);
+        document.getElementById('totalValue').innerText = '¥' + total.toLocaleString();
+        
+        const sumAll = proj.items.reduce((s, it) => s + it.amount, 0);
+        let deg = 0, stops = [];
+        proj.items.forEach(it => {
+            const p = sumAll === 0 ? 0 : (it.amount / sumAll) * 100;
+            stops.push(`${it.color} ${deg}% ${deg + p}%`);
+            deg += p;
         });
-
-        document.getElementById('totalValue').innerText = masked ? '***' : '¥' + total.toLocaleString();
-        
-        const totalSum = income + expense;
-        const incRatio = totalSum === 0 ? 0 : (income / totalSum) * 100;
-        donut.style.background = `conic-gradient(var(--color-income) ${incRatio}%, var(--color-expense) 0)`;
-        
-        if(items.length === 0) listEl.innerHTML = '<div class="empty">データがありません</div>';
+        document.getElementById('donut').style.background = stops.length ? `conic-gradient(${stops.join(',')})` : '#eee';
     }
 
-    function del(i) { items.splice(i, 1); localStorage.setItem('myAssets', JSON.stringify(items)); update(); }
-    
-    update();
+    function exportData() {
+        const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(projects));
+        const dlAnchor = document.createElement('a');
+        dlAnchor.setAttribute("href", dataStr);
+        dlAnchor.setAttribute("download", "assets_data.json");
+        dlAnchor.click();
+    }
+
+    function importData(e) {
+        const file = e.target.files[0];
+        if (!file) return;
+        const reader = new FileReader();
+        reader.onload = (event) => {
+            try {
+                projects = JSON.parse(event.target.result);
+                render();
+            } catch(e) { alert("無効なファイルです"); }
+        };
+        reader.readAsText(file);
+        e.target.value = '';
+    }
+
+    function editProjectTitle() { const newTitle = prompt("タイトルを入力", projects[currentIdx].title); if(newTitle) { projects[currentIdx].title = newTitle; render(); } }
+    function toggleMenu() { document.getElementById('menu').classList.toggle('open'); document.getElementById('overlay').style.display = document.getElementById('menu').classList.contains('open') ? 'block' : 'none'; }
+    function openModal(i = -1) { editIdx = i; const p = projects[currentIdx]; document.getElementById('name').value = i === -1 ? '' : p.items[i].name; document.getElementById('amount').value = i === -1 ? '' : p.items[i].amount; document.getElementById('colorPicker').value = i === -1 ? '#00B894' : p.items[i].color; document.getElementById('colorPreview').style.backgroundColor = i === -1 ? '#00B894' : p.items[i].color; document.getElementById('delBtn').style.display = i === -1 ? 'none' : 'block'; document.getElementById('modal').style.display = 'flex'; }
+    function saveItem() { const p = projects[currentIdx]; const it = { name: document.getElementById('name').value, amount: parseInt(document.getElementById('amount').value) || 0, color: document.getElementById('colorPicker').value }; if(editIdx === -1) p.items.push(it); else p.items[editIdx] = it; closeModal(); render(); }
+    function deleteItem() { projects[currentIdx].items.splice(editIdx, 1); closeModal(); render(); }
+    function closeModal() { document.getElementById('modal').style.display = 'none'; }
+    function switchProject(i) { currentIdx = i; toggleMenu(); render(); }
+    function addProject() { const t = prompt("グラフ名"); if(t) { projects.push({title: t, items: []}); render(); } }
+    render();
 </script>
 </body>
 </html>
